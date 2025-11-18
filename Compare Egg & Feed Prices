@@ -1,0 +1,39 @@
+import pandas as pd
+from fredapi import Fred
+
+fred = Fred(api_key='Put_Your_Key_Here')
+
+pd.set_option('display.max_rows', 1500)
+
+Start_Date = '2005-01-01'
+End_Date = '2025-12-31'
+
+data_eggs = fred.get_series('APU0000708111').loc[Start_Date:End_Date]
+data_eggs.name = 'Eggs_Price_Per_Dozen'
+
+data_feed = fred.get_series('PCU3111193111191').loc[Start_Date:End_Date]
+data_feed.name = 'Fowl_Feed_PPI'
+
+df_combined = pd.concat([data_eggs, data_feed], axis=1)
+
+df_combined['Eggs MoM Change (%)'] = df_combined['Eggs_Price_Per_Dozen'].pct_change() * 100
+df_combined['Feed MoM Change (%)'] = df_combined['Fowl_Feed_PPI'].pct_change() * 100
+
+df_analysis = df_combined.dropna()
+
+feed_mom = df_analysis['Feed MoM Change (%)']
+eggs_mom = df_analysis['Eggs MoM Change (%)']
+
+correlations = {}
+lags = [0, 1, 2, 3] # Test for 0, 1, 2, and 3 months lag
+
+for L in lags:
+    corr_value = feed_mom.corr(eggs_mom.shift(-L))
+    correlations[f'Lag {L} Months (Feed change leads Eggs change)'] = corr_value
+
+correlation_series = pd.Series(correlations)
+
+print("\n--- Correlation Results (Fowl Feed MoM vs. Egg Price MoM) ---")
+print(correlation_series)
+print("\n--- Full Processed Data (requested) ---")
+print(df_combined)
